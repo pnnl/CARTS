@@ -1,0 +1,3 @@
+[submodule "externalDeps/Polygeist/llvm-project"]
+	path = externalDeps/Polygeist/llvm-project
+	url = https://github.com/llvm/llvm-project.git

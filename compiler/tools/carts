@@ -1,0 +1,554 @@
+#!/bin/bash
+
+# CARTS Wrapper Script
+# Automatically adds necessary include paths and library paths for CARTS compilation
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Determine if we're running from the installed location or the source location
+if [[ "$SCRIPT_DIR" == *"/.install/carts/bin" ]]; then
+    # We're running from the installed location
+    # Go up 3 levels: bin -> carts -> .install -> project root
+    CARTS_DIR="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+else
+    # We're running from the source location
+    CARTS_DIR="$(dirname "$SCRIPT_DIR")"
+fi
+
+# Define paths
+INSTALL_DIR="${CARTS_DIR}/.install"
+LLVM_INSTALL_DIR="${INSTALL_DIR}/llvm"
+POLYGEIST_INSTALL_DIR="${INSTALL_DIR}/polygeist"
+ARTS_INSTALL_DIR="${INSTALL_DIR}/arts"
+CARTS_INSTALL_DIR="${INSTALL_DIR}/carts"
+
+# macOS specific paths
+MACOS_SDK_PATH="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+HOMEBREW_LIBOMP_PATH="/opt/homebrew/opt/libomp"
+
+# Function to detect OS and set appropriate paths
+detect_os_paths() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS paths
+        SYSTEM_INCLUDE_PATH="${MACOS_SDK_PATH}/usr/include"
+        SYSTEM_CXX_INCLUDE_PATH="${MACOS_SDK_PATH}/usr/include/c++/v1"
+        OPENMP_INCLUDE_PATH="${HOMEBREW_LIBOMP_PATH}/include"
+        OPENMP_LIB_PATH="${HOMEBREW_LIBOMP_PATH}/lib"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux paths (adjust as needed)
+        SYSTEM_INCLUDE_PATH="/usr/include"
+        SYSTEM_CXX_INCLUDE_PATH="/usr/include/c++/v1"
+        OPENMP_INCLUDE_PATH="/usr/include"
+        OPENMP_LIB_PATH="/usr/lib"
+    else
+        echo "Unsupported OS: $OSTYPE"
+        exit 1
+    fi
+}
+
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  build [options]  - Build CARTS project using system clang"
+    echo "  cgeist <file> [cgeist_options]  - Run cgeist with automatic include paths"
+    echo "  opt <file> [carts-opt_options]  - Run carts-opt"
+    echo "  run [options]  - Run the CARTS C++ executable"
+    echo "  mlir-translate <file> [mlir-translate_options]  - Run mlir-translate"
+    echo "  compile <file> [clang_options]  - Compile with ARTS runtime"
+    echo "  benchmark [options]  - Run CARTS benchmarks"
+    echo "  report [options]  - Generate CARTS reports"
+    echo "  setup [options]  - Set up CARTS environment"
+    echo "  clean              - Clean generated files in current directory"
+    echo "  execute <file> [options]  - Complete pipeline: C++ → executable"
+    echo ""
+    echo "Examples:"
+    echo "  $0 build                    # Build CARTS project (default)"
+    echo "  $0 build --clean           # Clean build"
+    echo "  $0 build --arts            # Build only ARTS components"
+    echo "  $0 build --polygeist       # Build only Polygeist"
+    echo "  $0 build --llvm            # Build only LLVM"
+    echo "  $0 cgeist simple.cpp -std=c++17 -fopenmp -O0 -S > simple.mlir"
+    echo "  $0 opt simple.mlir --lower-affine --cse --polygeist-mem2reg"
+    echo "  $0 run --help"
+    echo "  $0 compile simple-arts.ll -o simple"
+    echo "  $0 benchmark --target_examples matrixmul"
+    echo "  $0 report --help"
+    echo "  $0 setup                    # Setup CARTS environment"
+    echo "  $0 setup --add-to-path     # Add carts to PATH"
+    echo "  $0 setup --deps-only       # Install dependencies only"
+    echo "  $0 clean                    # Clean generated files"
+    echo "  $0 execute simple.cpp -o simple  # Complete pipeline"
+    echo ""
+    echo "Environment variables:"
+    echo "  CARTS_INSTALL_DIR - Override installation directory (default: .install)"
+    echo "  CARTS_VERBOSE - Enable verbose output"
+    echo ""
+    echo "Note: 'build' uses system clang, while ARTS operations use installed LLVM"
+}
+
+# Function to run cgeist with automatic include paths
+run_cgeist() {
+    local input_file="$1"
+    shift
+    
+    if [[ ! -f "$input_file" ]]; then
+        echo "Error: Input file '$input_file' not found"
+        exit 1
+    fi
+    
+    # Build include paths
+    local include_paths=(
+        "-I${OPENMP_INCLUDE_PATH}"
+        "-I${LLVM_INSTALL_DIR}/include"
+        "-I${LLVM_INSTALL_DIR}/include/c++/v1"
+        "-I${SYSTEM_INCLUDE_PATH}"
+        "-I${SYSTEM_CXX_INCLUDE_PATH}"
+    )
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running cgeist with include paths:"
+        printf "  %s\n" "${include_paths[@]}"
+        echo "Command: ${POLYGEIST_INSTALL_DIR}/bin/cgeist ${include_paths[*]} $input_file $*"
+    fi
+    
+    "${POLYGEIST_INSTALL_DIR}/bin/cgeist" "${include_paths[@]}" "$input_file" "$@"
+}
+
+# Function to run carts-opt
+run_opt() {
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running carts-opt: ${CARTS_INSTALL_DIR}/bin/carts-opt $*"
+    fi
+    
+    "${CARTS_INSTALL_DIR}/bin/carts-opt" "$@"
+}
+
+# Function to run carts-run (the C++ executable)
+run_run() {
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running carts-run: ${CARTS_INSTALL_DIR}/bin/carts-run $*"
+    fi
+    
+    "${CARTS_INSTALL_DIR}/bin/carts-run" "$@"
+}
+
+# Function to run mlir-translate
+run_mlir_translate() {
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running mlir-translate: ${LLVM_INSTALL_DIR}/bin/mlir-translate $*"
+    fi
+    
+    "${LLVM_INSTALL_DIR}/bin/mlir-translate" "$@"
+}
+
+# Function to compile with ARTS runtime
+run_compile() {
+    local input_file="$1"
+    shift
+    
+    if [[ ! -f "$input_file" ]]; then
+        echo "Error: Input file '$input_file' not found"
+        exit 1
+    fi
+    
+    # Use installed LLVM clang for ARTS operations
+    local clang_path="${LLVM_INSTALL_DIR}/bin/clang"
+    if [[ ! -f "$clang_path" ]]; then
+        echo "Error: LLVM clang not found at $clang_path"
+        echo "Please ensure LLVM is properly installed"
+        exit 1
+    fi
+    
+    # Build library paths
+    local library_paths=(
+        "-L${ARTS_INSTALL_DIR}/lib"
+        "-L${OPENMP_LIB_PATH}"
+        "-Wl,-rpath,${ARTS_INSTALL_DIR}/lib"
+    )
+    
+    # Add system library paths for LLVM clang
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        library_paths+=("-L/usr/lib")
+        library_paths+=("-L/opt/homebrew/lib")
+        # Add system SDK path for macOS
+        local sdk_path="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+        if [[ -d "$sdk_path" ]]; then
+            library_paths+=("-isysroot" "$sdk_path")
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        library_paths+=("-L/usr/lib")
+        library_paths+=("-L/usr/lib64")
+    fi
+    
+    # Set libraries based on OS
+    local libraries=(
+        "-larts"
+        "-lomp"
+    )
+    
+    # Add pthread library only on Linux (part of system library on macOS)
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        libraries+=("-lpthread")
+        libraries+=("-lrt")
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running LLVM clang with library paths:"
+        printf "  %s\n" "${library_paths[@]}"
+        echo "Libraries:"
+        printf "  %s\n" "${libraries[@]}"
+        echo "Command: $clang_path ${library_paths[*]} ${libraries[*]} $input_file $*"
+    fi
+    
+    "$clang_path" "${library_paths[@]}" "${libraries[@]}" "$input_file" "$@"
+}
+
+# Function to run benchmark tool
+run_benchmark() {
+    local benchmark_script="${CARTS_DIR}/tools/benchmark/carts-benchmark"
+    if [[ ! -f "$benchmark_script" ]]; then
+        echo "Error: Benchmark script not found at $benchmark_script"
+        exit 1
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running benchmark: python3 $benchmark_script $*"
+    fi
+    
+    python3 "$benchmark_script" "$@"
+}
+
+# Function to run report tool
+run_report() {
+    local report_script="${CARTS_DIR}/tools/report/carts-report"
+    if [[ ! -f "$report_script" ]]; then
+        echo "Error: Report script not found at $report_script"
+        exit 1
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running report: python3 $report_script $*"
+    fi
+    
+    python3 "$report_script" "$@"
+}
+
+# Function to build CARTS project using system clang
+run_build() {
+    echo "Building CARTS project using system clang..."
+    echo "Note: Project build uses system clang, ARTS operations use installed LLVM"
+    echo ""
+    
+    # Check if we're in the right directory
+    if [[ ! -f "${CARTS_DIR}/Makefile" ]]; then
+        echo "Error: Makefile not found. Are you in the CARTS project root?"
+        exit 1
+    fi
+    
+    # Parse build options
+    local clean_build=false
+    local build_target="build"
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            "--clean"|"-c")
+                clean_build=true
+                shift
+                ;;
+            "--arts"|"-a")
+                build_target="arts"
+                shift
+                ;;
+            "--polygeist"|"-p")
+                build_target="polygeist"
+                shift
+                ;;
+            "--llvm"|"-l")
+                build_target="llvm"
+                shift
+                ;;
+            "--help"|"-h")
+                echo "Build options:"
+                echo "  (default)       Build CARTS project (make build)"
+                echo "  --clean, -c     Clean build (make clean && make build)"
+                echo "  --arts, -a      Build only ARTS components (make arts)"
+                echo "  --polygeist, -p Build only Polygeist (make polygeist)"
+                echo "  --llvm, -l      Build only LLVM (make llvm)"
+                echo "  --help, -h      Show this help"
+                exit 0
+                ;;
+            *)
+                echo "Unknown build option: $1"
+                echo "Use --help for available options"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Change to project directory
+    cd "${CARTS_DIR}"
+    
+    if [[ "$clean_build" == "true" ]]; then
+        if [[ -n "$CARTS_VERBOSE" ]]; then
+            echo "Cleaning build..."
+        fi
+        make clean
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running: make $build_target"
+    fi
+    
+    make "$build_target"
+    
+    if [[ $? -eq 0 ]]; then
+        echo ""
+        echo "CARTS build completed successfully!"
+        echo "Install directory: ${CARTS_INSTALL_DIR}"
+        echo "System clang used for build"
+        echo "ARTS operations will use installed LLVM"
+    else
+        echo ""
+        echo "CARTS build failed!"
+        exit 1
+    fi
+}
+
+# Function to run setup tool
+run_setup() {
+    local setup_script="${CARTS_DIR}/tools/setup/carts-setup.py"
+    if [[ ! -f "$setup_script" ]]; then
+        echo "Error: Setup script not found at $setup_script"
+        exit 1
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running setup: python3 $setup_script $*"
+    fi
+    
+    python3 "$setup_script" "$@"
+}
+
+# Function to clean generated files
+run_clean() {
+    echo "Cleaning generated files in current directory..."
+    
+    # Files to remove
+    local files_to_remove=(
+        "*.mlir"
+        "*.ll"
+        "*.o"
+        "*.so"
+        "*.dylib"
+        "*.a"
+        "*.exe"
+        "DbGraph_*.dot"
+        "*.log"
+        "*.tmp"
+        ".artsPrintLock"
+    )
+    
+    # Directories to remove
+    local dirs_to_remove=(
+        "build"
+        "cmake-build-*"
+        ".cache"
+    )
+    
+    local removed_count=0
+    
+    # Remove files
+    for pattern in "${files_to_remove[@]}"; do
+        for file in $pattern; do
+            if [[ -f "$file" ]]; then
+                if [[ -n "$CARTS_VERBOSE" ]]; then
+                    echo "Removing file: $file"
+                fi
+                rm -f "$file"
+                ((removed_count++))
+            fi
+        done
+    done
+    
+    # Remove directories
+    for pattern in "${dirs_to_remove[@]}"; do
+        for dir in $pattern; do
+            if [[ -d "$dir" ]]; then
+                if [[ -n "$CARTS_VERBOSE" ]]; then
+                    echo "Removing directory: $dir"
+                fi
+                rm -rf "$dir"
+                ((removed_count++))
+            fi
+        done
+    done
+    
+    # Remove executables (but preserve source files)
+    for file in *; do
+        if [[ -f "$file" && -x "$file" && ! "$file" =~ \.(cpp|c|h|hpp|py|sh|md|txt|cfg|yaml|json)$ ]]; then
+            if [[ -n "$CARTS_VERBOSE" ]]; then
+                echo "Removing executable: $file"
+            fi
+            rm -f "$file"
+            ((removed_count++))
+        fi
+    done
+    
+    if [[ $removed_count -eq 0 ]]; then
+        echo "No generated files found to clean"
+    else
+        echo "Cleaned $removed_count files/directories"
+    fi
+}
+
+# Function to execute complete pipeline
+run_execute() {
+    local input_file="$1"
+    shift
+    
+    if [[ ! -f "$input_file" ]]; then
+        echo "Error: Input file '$input_file' not found"
+        exit 1
+    fi
+    
+    # Extract base name without extension
+    local base_name="${input_file%.*}"
+    local extension="${input_file##*.}"
+    
+    # Validate input file type
+    if [[ "$extension" != "cpp" && "$extension" != "c" ]]; then
+        echo "Error: Input file must be .cpp or .c"
+        exit 1
+    fi
+    
+    echo "Executing complete CARTS pipeline for: $input_file"
+    echo "Pipeline: C++ → MLIR → LLVM IR → Executable"
+    echo ""
+    
+    # Step 1: C++ to MLIR
+    echo "Step 1: Converting C++ to MLIR..."
+    
+    # Determine standard flag based on file extension
+    local std_flag=""
+    if [[ "$extension" == "cpp" ]]; then
+        std_flag="-std=c++17"
+    elif [[ "$extension" == "c" ]]; then
+        std_flag="-std=c17"
+    fi
+    
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running: carts cgeist $input_file $std_flag -fopenmp -O0 -S > ${base_name}.mlir"
+    fi
+    
+    # Temporarily disable verbose output for file generation
+    local original_verbose="$CARTS_VERBOSE"
+    unset CARTS_VERBOSE
+    
+    if ! carts cgeist "$input_file" $std_flag -fopenmp -O0 -S > "${base_name}.mlir"; then
+        echo "Error: Failed to convert C++ to MLIR"
+        exit 1
+    fi
+    
+    # Step 2: MLIR to LLVM IR with ARTS transformations
+    echo "Step 2: Applying ARTS transformations and converting to LLVM IR..."
+    if [[ -n "$original_verbose" ]]; then
+        echo "Running: carts run ${base_name}.mlir --O3 --arts-opt --emit-llvm > ${base_name}-arts.ll"
+    fi
+    
+    if ! carts run "${base_name}.mlir" --O3 --arts-opt --emit-llvm > "${base_name}-arts.ll"; then
+        echo "Error: Failed to apply ARTS transformations"
+        exit 1
+    fi
+    
+    # Restore verbose output
+    if [[ -n "$original_verbose" ]]; then
+        export CARTS_VERBOSE="$original_verbose"
+    fi
+    
+    # Step 3: Compile to executable
+    echo "Step 3: Compiling to executable..."
+    if [[ -n "$CARTS_VERBOSE" ]]; then
+        echo "Running: carts compile ${base_name}-arts.ll -o ${base_name} $*"
+    fi
+    
+    if ! carts compile "${base_name}-arts.ll" -o "${base_name}" "$@"; then
+        echo "Error: Failed to compile to executable"
+        exit 1
+    fi
+    
+    echo ""
+    echo "Pipeline completed successfully!"
+    echo "Generated executable: ${base_name}"
+    echo ""
+    echo "Intermediate files:"
+    echo "  MLIR: ${base_name}.mlir"
+    echo "  LLVM IR: ${base_name}-arts.ll"
+    echo "  Executable: ${base_name}"
+    echo ""
+    echo "To clean intermediate files, run: carts clean"
+}
+
+# Main script logic
+main() {
+    # Detect OS and set paths
+    detect_os_paths
+    
+    # Check if we have a command
+    if [[ $# -eq 0 ]]; then
+        show_usage
+        exit 1
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        "build")
+            run_build "$@"
+            ;;
+        "cgeist")
+            run_cgeist "$@"
+            ;;
+        "opt")
+            run_opt "$@"
+            ;;
+        "run")
+            run_run "$@"
+            ;;
+        "mlir-translate")
+            run_mlir_translate "$@"
+            ;;
+        "compile")
+            run_compile "$@"
+            ;;
+        "benchmark")
+            run_benchmark "$@"
+            ;;
+        "report")
+            run_report "$@"
+            ;;
+        "setup")
+            run_setup "$@"
+            ;;
+        "clean")
+            run_clean "$@"
+            ;;
+        "execute")
+            run_execute "$@"
+            ;;
+        "help"|"-h"|"--help")
+            show_usage
+            ;;
+        *)
+            echo "Unknown command: $command"
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function with all arguments
+main "$@" 

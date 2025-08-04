@@ -1,0 +1,11 @@
+.cache
+.clangd
+.install
+.build
+.vscode
+compile_commands.json
+external
+build/
+CMakeFiles
+core.*
+./enable

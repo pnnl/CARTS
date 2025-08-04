@@ -6,8 +6,8 @@
 
 # Source Directories
 CARTS_DIR = ${shell pwd}
-ARTS_DIR ?= ${CARTS_DIR}/external/arts
-POLYGEIST_DIR ?= ${CARTS_DIR}/external/Polygeist
+ARTS_DIR ?= ${CARTS_DIR}/../externalDeps/arts
+POLYGEIST_DIR ?= ${CARTS_DIR}/../externalDeps/Polygeist
 LLVM_DIR ?= ${POLYGEIST_DIR}/llvm-project
 
 # Install Directories
@@ -36,8 +36,9 @@ installdeps: arts
 
 # Polygeist
 polygeist-download:
-	mkdir -p $(POLYGEIST_DIR)
-	git clone --branch carts --recursive https://github.com/randreshg/Polygeist.git $(POLYGEIST_DIR) 
+	#mkdir -p $(POLYGEIST_DIR)
+	#git clone --branch carts --recursive https://github.com/randreshg/Polygeist.git $(POLYGEIST_DIR) 
+	cd ${POLYGEIST_DIR}
 polygeist:
 	mkdir -p $(POLYGEIST_BUILD_DIR)
 	mkdir -p $(POLYGEIST_INSTALL_DIR)
@@ -84,8 +85,9 @@ llvm-clean:
 
 # ARTS
 arts-download:
-	mkdir -p $(ARTS_DIR)
-	git clone --recursive https://github.com/randreshg/ARTS.git $(ARTS_DIR)
+	#mkdir -p $(ARTS_DIR)
+	#git clone --recursive https://github.com/randreshg/ARTS.git $(ARTS_DIR)
+	cd ${ARTS_DIR}
 arts:
 	mkdir -p $(ARTS_BUILD_DIR)
 	mkdir -p $(ARTS_INSTALL_DIR)

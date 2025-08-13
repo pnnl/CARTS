@@ -6,8 +6,8 @@
 
 # Source Directories
 CARTS_DIR = ${shell pwd}
-ARTS_DIR ?= ${CARTS_DIR}/../externalDeps/arts
-POLYGEIST_DIR ?= ${CARTS_DIR}/../externalDeps/Polygeist
+ARTS_DIR ?= ${CARTS_DIR}/externalDeps/ARTS
+POLYGEIST_DIR ?= ${CARTS_DIR}/externalDeps/Polygeist
 LLVM_DIR ?= ${POLYGEIST_DIR}/llvm-project
 
 # Install Directories

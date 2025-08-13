@@ -41,7 +41,7 @@ add_subdirectory(utils)
 add_subdirectory(network)
 add_subdirectory(runtime)
 add_subdirectory(gas)
-add_subdirectory(gpu)
+#add_subdirectory(gpu)
 add_subdirectory(introspection)
 
 file(GLOB main_src "*.c")
@@ -60,7 +60,7 @@ if(CUDA_FOUND)
         $<TARGET_OBJECTS:runtime_network>
         $<TARGET_OBJECTS:system>
         $<TARGET_OBJECTS:utils>
-        $<TARGET_OBJECTS:gpu>
+#        $<TARGET_OBJECTS:gpu>
     )
 else()
     add_library(arts SHARED ${main_src}

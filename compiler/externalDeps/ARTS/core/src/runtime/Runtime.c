@@ -40,9 +40,11 @@
 #include "arts/gas/Guid.h"
 #include "arts/gas/OutOfOrder.h"
 #include "arts/gas/RouteTable.h"
+#ifdef USE_GPU
 #include "arts/gpu/GpuRouteTable.h"
 #include "arts/gpu/GpuRuntime.h"
 #include "arts/gpu/GpuStream.h"
+#endif
 #include "arts/introspection/Counter.h"
 #include "arts/introspection/Introspection.h"
 #include "arts/network/Remote.h"

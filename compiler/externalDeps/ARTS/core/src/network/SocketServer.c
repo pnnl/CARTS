@@ -60,6 +60,7 @@
 #include "arts/network/RemoteProtocol.h"
 #include "arts/gas/RouteTable.h"
 #include "arts/network/SocketServer.h"
+#include "arts/network/Server.h"
 #include "arts/network/SocketServer.h"
 #include "errno.h"
 #include "net/if.h"

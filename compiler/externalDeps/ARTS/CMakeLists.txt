@@ -67,8 +67,8 @@ else()
     set(CMAKE_CXX_FLAGS " -O3 -g -ftree-vectorize -mtune=native -fPIC")
 endif()
 
-
-include(CheckLanguage)
+set(CUDA_FOUND FALSE)
+#include(CheckLanguage)
 # check_language(CUDA)
 # if(CMAKE_CUDA_COMPILER)
 #     set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)

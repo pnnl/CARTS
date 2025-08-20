@@ -1,2 +1,0 @@
-export PATH=/home/randres/projects/carts/.install/llvm/bin:$PATH
-export LD_LIBRARY_PATH=/home/randres/projects/carts/.install/llvm/lib:/home/randres/projects/carts/.install/arts/lib:$LD_LIBRARY_PATH

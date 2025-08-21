@@ -1,7 +1,10 @@
 
-ARTS_PATH=/home/randres/projects/carts/.install/arts
-CARTS_PATH=/home/randres/projects/carts/.install/carts
-CLANG_INCLUDE_PATH=/usr/lib/llvm-14/lib/clang/14.0.0/include
+
+HOME=/home/manz551/src/opensrc/CARTS/compiler
+ARTS_PATH=${HOME}/.install/arts
+CARTS_PATH=${HOME}/.install/carts
+#CLANG_INCLUDE_PATH=/usr/lib/llvm-14/lib/clang/14.0.0/include
+CLANG_INCLUDE_PATH=/usr/lib/clang/18/include
 FILENAME=taskwithdeps
 SHELL = /bin/bash
 
@@ -20,7 +23,7 @@ all: $(FILENAME)
 
 # Generate binary	
 $(FILENAME): $(FILENAME).ll
-	clang $< -O3 -g0 -march=native -o $@ -I/$(ARTS_PATH)/include/arts -L$(ARTS_PATH)/lib -larts -L/usr/lib64/librt.so/usr/lib64/libpthread.so/usr/lib64/lib -lrdmacm
+	clang $< -O3 -g0 -march=native -o $@ -I/$(ARTS_PATH)/include/arts -L$(ARTS_PATH)/lib -larts -L/usr/lib64/librt.so/usr/lib64/libpthread.so/usr/lib64/lib #-lrdmacm
 
 clean:
 	rm -f *.mlir *.ll ./$(FILENAME) ;
